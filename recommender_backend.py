@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import faiss, pickle
+import faiss, pickle, os
 from ollama import Client
 
 #Filtering the data to only the relevant columns
@@ -58,17 +58,51 @@ def embed(texts):
     faiss.normalize_L2(arr)  # cosine when combined with inner product
     return arr
 
-E = embed(netflixCorpus)
-index = faiss.IndexFlatIP(E.shape[1])  # inner product on normalized vectors = cosine similarity
-index.add(E)
+dataDict = {
+    'amazon': (amazonCorpus, amazonData),
+    'netflix': (netflixCorpus, netflixData),
+    'hulu': (huluCorpus, huluData),
+    'disney': (disneyCorpus, disneyData),
+    'all': (allCorpus, allData),
+}
 
-def recommend(query, k=5):
-    q = embed([query])
-    sims, idxs = index.search(q, k)
-    return [(netflixData.iloc[int(i)]["title"], float(sims[0][j])) for j,i in enumerate(idxs[0])]
 
-#Compute and store the model after final compute
-faiss.write_index(index, "netflix.index")       # save the FAISS index
-np.save("movie_vectors.npy", E)                # optional: save raw embeddings
-with open("netflix.pkl","wb") as f:
-    pickle.dump(netflixData, f)
+def build_index(name, corpus, df, embed_fn=embed):
+    """Compute embeddings and write index + artifacts for a single dataset."""
+    vec_path = f"{name}_vectors.npy"
+    idx_path = f"{name}.index"
+    pkl_path = f"{name}.pkl"
+
+    E = embed_fn(corpus)
+    index = faiss.IndexFlatIP(E.shape[1])
+    index.add(E)
+    faiss.write_index(index, idx_path)
+    np.save(vec_path, E)
+    with open(pkl_path, 'wb') as f:
+        pickle.dump(df, f)
+
+
+def ensure_index(name):
+    """Ensure the named index and pickle exist. Build lazily if missing."""
+    if name not in dataDict:
+        raise KeyError(f"Unknown dataset: {name}")
+    corpus, df = dataDict[name]
+    vec_path = f"{name}_vectors.npy"
+    idx_path = f"{name}.index"
+    pkl_path = f"{name}.pkl"
+
+    # create pickle if missing
+    if not os.path.exists(pkl_path):
+        with open(pkl_path, 'wb') as f:
+            pickle.dump(df, f)
+
+    # build index and vectors if missing
+    if not (os.path.exists(vec_path) and os.path.exists(idx_path)):
+        print(f"Building index for {name} (this may take a while)...")
+        build_index(name, corpus, df)
+
+
+def build_all_indexes():
+    """Convenience: build all indexes. Use sparingly."""
+    for name, (corpus, df) in dataDict.items():
+        ensure_index(name)

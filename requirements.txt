@@ -1,0 +1,10 @@
+streamlit
+numpy
+pandas
+faiss-cpu
+ollama
+requests
+
+# Note: ngrok is not a pip package. Install ngrok separately (Homebrew / official installer):
+#   brew install ngrok/ngrok/ngrok
+# or download from https://ngrok.com/

@@ -1,0 +1,160 @@
+Movie Recommender System - Documentation
+
+Overview
+--------
+This project is a lightweight movie recommendation demo that combines local embeddings (via Ollama), FAISS vector indexes, and a Streamlit-based frontend. It supports multiple platforms (Netflix, Amazon Prime, Hulu, Disney+, and a combined "all" catalog) and uses precomputed vector embeddings and FAISS indexes to return fast similarity search results.
+
+High-level flow
+----------------
+1. Data preparation (backend): CSV files for each streaming platform are loaded, normalized (title, genre, cast, plot), and converted into a single textual representation per title. These texts are embedded using an embeddings model and stored as numpy arrays and FAISS indices. The pickled data ({}.pkl) and index files ({}.index and {}_vectors.npy) are saved so the frontend can load them quickly.
+
+2. Backend API/library: The backend exposes helper functions such as `embed()` and `ensure_index()` so clients (the Streamlit frontend or small scripts) can embed queries and load or build FAISS indexes on demand.
+
+3. Frontend (Streamlit): The user chooses a platform and a movie they like. The frontend builds a textual representation (title | genre | Cast: ... | plot) for the chosen movie, embeds it, and queries the FAISS index for the top-k similar titles. Results are displayed with title, genre, cast, plot, poster, and similarity score.
+
+Files and responsibilities
+---------------------------
+- app.py / recommender_frontend.py
+  - Streamlit application that provides the interactive UI.
+  - UI elements include: title, informative markdown, posters display (from Posters/), platform selector, movie selector, recommendation count slider, and a centered Recommend button.
+  - On recommendation: calls `ensure_index(platform_key)` to lazily build/load the FAISS index, calls `embed([full_text])` to get the query embedding, runs `index.search(q, k)` and displays formatted results.
+
+- backend.py / recommender_backend.py
+  - Contains data loading, corpus/text creation helpers, the `embed()` function (calls Ollama embedding API by default), and index-building utilities (`build_index()`, `ensure_index()`, `build_all_indexes()`).
+  - Embeddings are L2-normalized and persisted as `{platform}_vectors.npy`; FAISS indexes are written to `{platform}.index`; pickles of the metadata are saved as `{platform}.pkl`.
+
+- backend_abstracted.py
+  - A small demo script used during development to test indexing and recommendation flows. Not required by the frontend; safe to remove if you prefer a cleaner repo.
+
+- CSV files
+  - `netflix_titles.csv`, `amazon_prime_titles.csv`, `hulu_titles.csv`, `disney_plus_titles.csv` — used to build the datasets. These are read by the backend preprocessing steps.
+
+- Artifacts created by the backend
+  - `{platform}.pkl`: pickled list/df of metadata entries for the platform
+  - `{platform}_vectors.npy`: numpy array of embeddings for all titles in the platform
+  - `{platform}.index`: FAISS index file for that platform
+
+Running locally (dev)
+---------------------
+1. Create a Python virtualenv and install dependencies (adjust packages if your project has requirements.txt):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install streamlit faiss-cpu numpy pandas ollama requests
+# if you use a different embedding client or have a requirements.txt, install that
+```
+
+2. Start Ollama locally and ensure the embedding model (e.g., nomic-embed-text) is available.
+   - This project expects Ollama running at http://localhost:11434 by default.
+
+3. Build indices (optional - the app will try to build them lazily if missing):
+
+```bash
+python3 recommender_backend.py  # or run the build_all_indexes() helper
+```
+
+4. Run the Streamlit app:
+
+```bash
+streamlit run app.py  # or recommender_frontend.py, depending on which file you use
+```
+
+OR
+
+Start helper script
+-------------------
+This repository includes a helper script `start_all.sh` that starts the Streamlit app and (optionally) ngrok tunnels for sharing. Usage:
+
+```bash
+./start_all.sh
+```
+
+Notes:
+- The script will activate `.venv` if present and attempt to start Streamlit on port 8501.
+- If `ngrok` is installed and authenticated, the script will attempt to start tunnels and write logs to `ngrok_streamlit.log` and `ngrok_ollama.log`.
+- The script prints the PIDs of started processes; use those to stop them later (or `pkill ngrok`).
+
+
+Notes about Ollama and hosting
+------------------------------
+- Ollama runs locally by default. Any remote host (like Streamlit Cloud) will not be able to call your local Ollama instance. If you plan to host remotely you must either:
+  - Replace Ollama with a remote embedding provider accessible to the host, or
+  - Host Ollama on a public server (secure it), or
+  - Precompute embeddings and store them in a cloud-accessible store so the remote host can load them.
+
+Sharing from your local machine using ngrok (quick & free)
+---------------------------------------------------------
+This section shows how to make your locally running Streamlit app available to the public via ngrok and how to expose Ollama if needed. This is suitable for demos but keep in mind it exposes your machine to the internet.
+
+1. Install ngrok (if needed):
+
+macOS (Homebrew):
+
+```bash
+brew install ngrok/ngrok/ngrok
+```
+
+Or download from ngrok.com and follow the installation steps.
+
+2. (Optional) Sign up for an ngrok account and get your authtoken from the dashboard. Add it locally:
+
+```bash
+ngrok config add-authtoken <YOUR_AUTHTOKEN>
+```
+
+3. Start your app and Ollama locally (defaults used by this repo):
+
+```bash
+# start Ollama separately (follow Ollama docs to start the server and load model)
+# start Streamlit app (make sure it binds to 0.0.0.0 so the tunnel can reach it)
+streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+```
+
+4. Create an ngrok tunnel for Streamlit:
+
+```bash
+ngrok http 8501
+```
+
+ngrok will print one or more public HTTPS forwarding URLs (e.g. https://abcd-1234.ngrok.io). Share that URL with others — it will forward requests to your local Streamlit app.
+
+5. If your app calls the local Ollama server (default http://localhost:11434), you must also expose Ollama and set an environment variable so the app calls the public ngrok address for Ollama instead of localhost. Create another ngrok tunnel:
+
+```bash
+ngrok http 11434
+```
+
+Then set an environment variable in the terminal running Streamlit so the embedding client uses the ngrok URL for Ollama, for example:
+
+```bash
+export OLLAMA_URL="https://xxxx-11434.ngrok.io"
+streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+```
+
+6. Security notes:
+- Anyone with the ngrok URL can access your app and the exposed Ollama API; consider adding a simple password gate to your Streamlit app or protect the tunnel with ngrok's basic auth.
+- Stop the tunnel (Ctrl-C) to shut down public access.
+
+Troubleshooting
+---------------
+- If the recommended results are missing metadata (genre/cast/plot), check the format of your `{platform}.pkl` files — some are lists of pipe-separated strings and the frontend includes logic to parse them.
+- If Streamlit cannot find `posters/` images, check the `Posters/` folder spelling and file extensions.
+- If FAISS fails to load, ensure `faiss` is installed and compiled for your platform (use `faiss-cpu` for macOS/Intel or `faiss-cpu` for Apple Silicon where supported).
+
+Cleaning up and next steps
+--------------------------
+- Consider normalizing your pickles into DataFrames with explicit columns for `title`, `genre`, `cast`, `plot` for easier downstream processing.
+- If you'd like to deploy on Streamlit Cloud, I can help precompute vectors (reduce artifact sizes), refactor the code to use a hosted embeddings API, and create a `requirements.txt` and `Procfile` if needed.
+
+Contact / Notes
+---------------
+If you'd like, I can:
+- Add a simple password gate for the Streamlit app before exposing to public traffic.
+- Prepare a minimal `requirements.txt` and a GitHub-ready repo layout for Streamlit Community Cloud.
+- Provide a one-line script to start Ollama, open ngrok tunnels and run Streamlit.
+
+---
+Generated on: 2025-09-17
+

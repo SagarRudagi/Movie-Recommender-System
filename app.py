@@ -4,8 +4,7 @@ import os
 import random
 import pickle
 import faiss
-
-from recommender_backend import ensure_index, embed
+from backend import ensure_index, embed
 
 # Simple, minimal Streamlit frontend
 st.set_page_config(page_title="Movie Recommender", layout="centered")

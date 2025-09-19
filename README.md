@@ -90,13 +90,13 @@ Or use the helper (starts Streamlit and optionally ngrok tunnels):
 
 ## 🌐 Share a demo (ngrok)
 
-To share your local demo publicly (quick & free), expose Streamlit via ngrok:
+To share the local demo publicly (quick & free), expose Streamlit via ngrok:
 
 ```bash
 ngrok http 8501
 ```
 
-If your app needs to call your local Ollama server from the public internet, also run:
+If the app needs to call your local Ollama server from the public internet, also run:
 
 ```bash
 ngrok http 11434
@@ -104,7 +104,7 @@ export OLLAMA_URL="https://<your-ngrok-ollama-url>"
 streamlit run app.py --server.address 0.0.0.0 --server.port 8501
 ```
 
-Security notes: anyone with the ngrok URL can access your app — consider adding a simple password gate or using Cloudflare Access.
+Security notes: anyone with the ngrok URL can access the app — consider adding a simple password gate or using Cloudflare Access.
 
 ---
 
@@ -114,17 +114,6 @@ Security notes: anyone with the ngrok URL can access your app — consider addin
 - Precompute embeddings on a machine once and reuse the generated files to avoid repeated heavy computation.
 - If you need a persistent free hosting option, refactor to use a hosted embeddings API or precompute vectors and deploy only the frontend and FAISS artifacts.
 
----
-
-## 🧾 License
-
-(Include license or leave as private/demo)
-
----
-
-If you want, I can also:
-- Add a production-ready `Procfile` and `Dockerfile` to run everything in a container.
-- Add a brief benchmarking script showing before/after latency numbers.
 
 ***
 Generated on 2025-09-18

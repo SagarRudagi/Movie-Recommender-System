@@ -16,7 +16,7 @@ A lightweight, local-first movie recommender demo using local embeddings (Ollama
 
 ## 📁 Repo layout
 
-- `app.py` (or `recommender_frontend.py`) — Streamlit frontend UI
+- `app.py` — Streamlit frontend UI
 - `backend.py` — data prep, embedding wrapper, index builder (`ensure_index`, `build_index`, `build_all_indexes`)
 - `*.csv` — raw title data per platform (Netflix, Amazon, Hulu, Disney)
 - `*.pkl`, `*_vectors.npy`, `*.index` — generated artifacts (pickles, embeddings, FAISS indexes)

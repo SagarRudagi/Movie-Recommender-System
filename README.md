@@ -70,7 +70,7 @@ Note: `ngrok` is not a pip package — install via Homebrew (`brew install ngrok
 2. Build indices (optional, the app will build lazily if missing):
 
 ```bash
-python3 recommender_backend.py
+python3 backend.py
 ```
 
 3. Run the app:
